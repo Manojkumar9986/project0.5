@@ -10,14 +10,14 @@ from nltk.stem import WordNetLemmatizer
 from textblob import TextBlob
 import base64
 
-# Download NLTK resources
+# Download NLTK data
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
 
-# Set background image using local file
+# Set hospital-themed background image
 def set_background(image_file):
-    with open(image_file, "rb") as img:
-        encoded = base64.b64encode(img.read()).decode()
+    with open(image_file, "rb") as image:
+        encoded = base64.b64encode(image.read()).decode()
     st.markdown(
         f"""
         <style>
@@ -27,90 +27,101 @@ def set_background(image_file):
             background-position: center;
             background-attachment: fixed;
         }}
-        .main {{
+        .main-box {{
             background-color: rgba(255, 255, 255, 0.85);
             padding: 2rem;
-            border-radius: 10px;
+            border-radius: 15px;
+            margin: 2rem;
         }}
         </style>
         """,
         unsafe_allow_html=True
     )
 
-set_background("hospital.jpg")  # Make sure this image is in the same folder
+# Set the background (image must be in the same folder)
+set_background("hospital.jpg")
 
-# Initialize NLP tools
-stop_words = set(stopwords.words('english'))
+# Load model and CSV
+@st.cache_resource
+def load_model():
+    with open("disease_model.pkl", "rb") as f:
+        return pickle.load(f)
+
+@st.cache_data
+def load_data():
+    return pd.read_csv("wordcloud.csv")
+
+model = load_model()
+text_df = load_data()
+
+# Setup NLP tools
+stop_words = set(stopwords.words("english"))
 lemma = WordNetLemmatizer()
 
 def clean_text(text):
-    text = re.sub('[^a-zA-Z]', ' ', text)
+    text = re.sub("[^a-zA-Z]", " ", text)
     text = text.lower()
     words = text.split()
     words = [lemma.lemmatize(w) for w in words if w not in stop_words]
-    return ' '.join(words)
+    return " ".join(words)
 
-# Load model and data
-text_df = pd.read_csv("wordcloud.csv")
-with open('disease_model.pkl', 'rb') as file:
-    model = pickle.load(file)
-
+# Label mapping
 label_dict = {
-    0: 'Depression',
-    1: 'Diabetes, Type 2',
-    2: 'High Blood Pressure'
+    0: "Depression",
+    1: "Diabetes, Type 2",
+    2: "High Blood Pressure"
 }
 
-# App layout
-st.markdown("<h1 style='text-align: center;'>🧠 Disease Detection & Sentiment Analysis</h1>", unsafe_allow_html=True)
-st.markdown("<div class='main'>", unsafe_allow_html=True)
+# App title
+st.markdown("<h1 style='text-align:center;'>🩺 Disease Predictor & Sentiment Analyzer</h1>", unsafe_allow_html=True)
+st.markdown("<div class='main-box'>", unsafe_allow_html=True)
 
-# Input box
-user_input = st.text_area("Enter a medical review (e.g. patient feedback):", height=150)
+# Input review
+user_input = st.text_area("✍️ Enter a patient's review:", height=150)
 
-# Buttons
+# Action buttons
 col1, col2, col3 = st.columns(3)
 
+# Prediction
 with col1:
-    if st.button("Predict Condition"):
+    if st.button("🔍 Predict Condition"):
         cleaned_input = clean_text(user_input)
         if cleaned_input.strip():
-            pred = model.predict([cleaned_input])
-            label = label_dict[pred[0]]
-            st.success(f"Predicted Condition: **{label}**")
+            prediction = model.predict([cleaned_input])[0]
+            st.success(f"🧠 Predicted Condition: **{label_dict[prediction]}**")
         else:
-            st.warning("Input is too short or not meaningful.")
+            st.warning("Please enter valid descriptive text.")
 
+# Sentiment Analysis
 with col2:
-    if st.button("Analyze Sentiment"):
-        polarity = TextBlob(user_input).sentiment.polarity
-        if polarity > 0:
-            sentiment = "Positive 😊"
-        elif polarity < 0:
-            sentiment = "Negative 😞"
+    if st.button("💬 Analyze Sentiment"):
+        if user_input.strip():
+            polarity = TextBlob(user_input).sentiment.polarity
+            sentiment = "Positive 😊" if polarity > 0 else "Negative 😞" if polarity < 0 else "Neutral 😐"
+            st.info(f"**Sentiment:** {sentiment}")
         else:
-            sentiment = "Neutral 😐"
-        st.info(f"Sentiment: **{sentiment}**")
+            st.warning("Please enter a review to analyze.")
 
+# WordCloud from Input
 with col3:
-    if st.button("Generate Input WordCloud"):
+    if st.button("☁️ WordCloud (Input)"):
         cleaned = clean_text(user_input)
         if cleaned.strip():
-            wc_user = WordCloud(width=800, height=400, background_color='black', colormap='Pastel1').generate(cleaned)
-            fig, ax = plt.subplots(figsize=(10, 5))
-            ax.imshow(wc_user, interpolation='bilinear')
-            ax.axis('off')
+            wc = WordCloud(width=800, height=400, background_color="black", colormap="Pastel1").generate(cleaned)
+            fig, ax = plt.subplots(figsize=(10, 4))
+            ax.imshow(wc, interpolation="bilinear")
+            ax.axis("off")
             st.pyplot(fig)
         else:
             st.warning("No meaningful words to visualize.")
 
-# Global wordcloud from dataset
-if st.button("Generate WordCloud from Dataset"):
-    text = " ".join(text_df['full_text'].astype(str))
-    wordcloud = WordCloud(width=1000, height=600, background_color='black', colormap='Pastel1').generate(text)
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.imshow(wordcloud, interpolation='bilinear')
-    ax.axis('off')
+# WordCloud from Dataset
+if st.button("📊 WordCloud (Dataset)"):
+    all_text = " ".join(text_df["full_text"].astype(str))
+    wc_all = WordCloud(width=1000, height=500, background_color="black", colormap="Pastel1").generate(all_text)
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.imshow(wc_all, interpolation="bilinear")
+    ax.axis("off")
     st.pyplot(fig)
 
 st.markdown("</div>", unsafe_allow_html=True)
