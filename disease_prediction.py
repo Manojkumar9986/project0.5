@@ -9,6 +9,7 @@ from nltk.stem import WordNetLemmatizer
 from textblob import TextBlob
 
 nltk.download('stopwords')
+nltk.download('wordnet')
 # Define the cleaning function exactly as before
 stop_words = set(stopwords.words('english'))
 lemma = WordNetLemmatizer()
@@ -22,12 +23,12 @@ def clean_text(text):
 
 tab0, tab1 = st.tabs(["WordCloud","Predict Disease"])
 
-text_df = pd.read_csv("C://Users//Lenovo//OneDrive//Desktop//project Deployment Excelr//Drug_classification ExcelR Project//wordcloud (1).csv")
-tfidf_path = 'C://Users//Lenovo//OneDrive//Desktop//project Deployment Excelr//Drug_classification ExcelR Project//tfidf_vector.pkl'
+text_df = pd.read_csv("worldcloud.csv")
+tfidf_path = 'tfidf_vector.pkl'
 with open(tfidf_path, 'rb') as file:
     tfidf_vect = pickle.load(file)
 
-model_path = 'C://Users//Lenovo//OneDrive//Desktop//project Deployment Excelr//Drug_classification ExcelR Project//disease_model.pkl'
+model_path = 'disease_model.pkl'
 with open(model_path, 'rb') as file1:
     model = cloudpickle.load(file1) # for custom function in pipeline
 
